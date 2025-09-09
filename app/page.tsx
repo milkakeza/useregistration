@@ -6,6 +6,7 @@ import { UserModal } from "../src/components/user-modal"
 import { StatsCard } from "../src/components/stats-card"
 import type { User, CreateUserData } from "../types/user"
 import { userApi } from "../lib/api"
+import { isAdmin } from "../lib/supabase"
 
 export default function HomePage() {
   const [users, setUsers] = useState<User[]>([])
@@ -14,7 +15,20 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadUsers()
+    const checkAdminAndRedirect = async () => {
+      try {
+        const adminStatus = await isAdmin()
+        if (adminStatus) {
+          window.location.href = "/admin"
+          return
+        }
+      } catch (error) {
+        console.log("Not authenticated or not admin, staying on main page")
+      }
+      loadUsers()
+    }
+
+    checkAdminAndRedirect()
   }, [])
 
   const loadUsers = async () => {
@@ -91,18 +105,18 @@ export default function HomePage() {
   }
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-100">
+      <div className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-2">User Management</h1>
-              <p className="text-gray-600">Manage and organize your registered users</p>
+              <h1 className="text-4xl font-bold text-slate-800 mb-2">User Management</h1>
+              <p className="text-slate-600">Manage and organize your registered users</p>
             </div>
             <button
               onClick={handleOpenModal}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold px-6 py-3 rounded-xl hover:from-emerald-600 hover:to-emerald-700  transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
             >
               <i className="fas fa-plus"></i>
               Add New User

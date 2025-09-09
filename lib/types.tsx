@@ -15,3 +15,11 @@ export interface ApiResponse<T> {
   message: string;
   data?: T;
 }
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  created_at: string;
+}

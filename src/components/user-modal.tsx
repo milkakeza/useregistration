@@ -1,76 +1,106 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import type { User, CreateUserData } from "../../types/user"
+import { useState, useEffect } from "react";
+// import type { User, CreateUserData } from "../../types/user"
 
-interface UserModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (userData: CreateUserData) => void
-  editingUser: User | null
+export interface FormField {
+  name: string;
+  label: string;
+  type: "text" | "number" | "textarea" | "select" | "radio" | "date";
+  options?: string[]; // For select or radio
+  required?: boolean;
+  placeholder?: string;
+  pattern?: string;
+  title?: string;
+  min?: number | string;
+  max?: number | string;
+  value?: string;
+  minLength?: number;
+  maxLength?: number;
+  readonly?: boolean;
+  customLabels?: Record<string, string>; // For custom option labels in select
+  onInput?: (
+    e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void;
+  onInvalid?: (e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  // onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 }
 
-export function UserModal({ isOpen, onClose, onSubmit, editingUser }: UserModalProps) {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    idNumber: "",
-    address: "",
-    age: "",
-    gender: "",
-    maritalStatus: "",
-  })
+interface GenericModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSubmit: (data: Record<string, any>) => void;
+  title: string;
+  fields: FormField[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialData?: Record<string, any>;
+  onUserSelection?: (userId: string) => void;
+  selectedUserName?: string;
+  selectedUserId?: string;
+}
+
+export function GenericModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  title,
+  fields,
+  initialData,
+  onUserSelection,
+  selectedUserName,
+  selectedUserId,
+}: GenericModalProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [formData, setFormData] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (editingUser) {
-      setFormData({
-        fullName: editingUser.name || "",
-        idNumber: editingUser.nationalId || "",
-        address: editingUser.address || "",
-        age: editingUser.age?.toString() || "",
-        gender: editingUser.gender || "",
-        maritalStatus: "", // Default since API doesn't have marital status
-      })
-    } else {
-      setFormData({
-        fullName: "",
-        idNumber: "",
-        address: "",
-        age: "",
-        gender: "",
-        maritalStatus: "",
-      })
+    if (isOpen) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const defaultData: Record<string, any> = {};
+      fields.forEach((f) => {
+        defaultData[f.name] = initialData?.[f.name] ?? "";
+      });
+      setFormData(defaultData);
     }
-  }, [editingUser, isOpen])
+  }, [fields, initialData, isOpen]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleChange = (name: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "userNo" && onUserSelection) {
+      onUserSelection(value);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedUserName) {
+      setFormData((prev) => {
+        // Only update if the fullName is different to prevent unnecessary re-renders
+        if (prev.fullName !== selectedUserName) {
+          return { ...prev, fullName: selectedUserName };
+        }
+        return prev;
+      });
+    }
+  }, [selectedUserName]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const userData: CreateUserData = {
-      name: formData.fullName.trim(),
-      address: formData.address,
-      age: formData.age ? Number.parseInt(formData.age) : null,
-      nationalId: formData.idNumber,
-      status: "",
-      gender: formData.gender.toUpperCase(),
-    }
-
-    onSubmit(userData)
-  }
+    e.preventDefault();
+    onSubmit(formData);
+  };
 
   const handleReset = () => {
-    setFormData({
-      fullName: "",
-      idNumber: "",
-      address: "",
-      age: "",
-      gender: "",
-      maritalStatus: "",
-    })
-  }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resetData: Record<string, any> = {};
+    fields.forEach((f) => (resetData[f.name] = ""));
+    setFormData(resetData);
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -83,131 +113,194 @@ export function UserModal({ isOpen, onClose, onSubmit, editingUser }: UserModalP
         </button>
 
         <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-500 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-              <i className={`fas ${editingUser ? "fa-user-edit" : "fa-user-plus"} text-white text-sm`}></i>
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">
-              {editingUser ? "Edit User Information" : "Add New User"}
-            </h2>
-          </div>
+          <h2 className="text-xl font-bold text-gray-800 text-center mb-6">
+            {title}
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input
-                type="text"
-                required
-                placeholder="Enter full name"
-                value={formData.fullName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
-              <input
-                type="text"
-                required
-                placeholder="16-digit ID number"
-                pattern="^\d{16}$"
-                title="ID number must be exactly 16 digits"
-                value={formData.idNumber}
-                onChange={(e) => setFormData((prev) => ({ ...prev, idNumber: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-              <textarea
-                rows={2}
-                required
-                placeholder="Enter address"
-                value={formData.address}
-                onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  required
-                  placeholder="Age"
-                  value={formData.age}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, age: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
-                <select
-                  required
-                  value={formData.maritalStatus}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      maritalStatus: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                >
-                  <option value="" disabled>
-                    Select
-                  </option>
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Divorced">Divorced</option>
-                  <option value="Widowed">Widowed</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-              <div className="flex gap-3">
-                {["Male", "Female", "Other"].map((gender) => (
-                  <label key={gender} className="flex items-center cursor-pointer text-sm">
-                    <input
-                      type="radio"
-                      name="gender"
-                      value={gender}
-                      required
-                      checked={formData.gender === gender}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          gender: e.target.value,
-                        }))
-                      }
-                      className="sr-only"
-                    />
-                    <div
-                      className={`w-4 h-4 border-2 rounded-full mr-2 flex items-center justify-center transition-colors ${
-                        formData.gender === gender ? "border-blue-500" : "border-gray-300"
-                      }`}
-                    >
-                      {formData.gender === gender && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>}
+            {fields.map((field) => {
+              switch (field.type) {
+                case "text":
+                case "number":
+                  return (
+                    <div key={field.name}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.label}
+                      </label>
+                      <input
+                        type={field.type}
+                        required={field.required}
+                        placeholder={field.placeholder}
+                        min={field.min}
+                        max={field.max}
+                        minLength={field.minLength}
+                        maxLength={field.maxLength}
+                        value={formData[field.name] || ""}
+                        onChange={(e) =>
+                          {handleChange(field.name, e.target.value)}
+                        }
+                        readOnly={field.readonly}
+                        onInput={field.onInput}
+                        className={`w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                          field.readonly
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : "bg-gray-50 focus:bg-white"
+                        }`}
+                      />
                     </div>
-                    <span className="text-gray-700">{gender}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+                  );
+                case "date":
+                  return (
+                    <div key={field.name}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.label}
+                      </label>
+                      <input
+                        type="date"
+                        min={field.min}
+                        max={field.max}
+                        required={field.required}
+                        value={formData[field.name] || ""}
+                        onChange={(e) =>
+                          handleChange(field.name, e.target.value)
+                        }
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                      />
+                    </div>
+                  );
+                case "textarea":
+                  return (
+                    <div key={field.name}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.label}
+                      </label>
+                      <textarea
+                        rows={2}
+                        required={field.required}
+                        placeholder={field.placeholder}
+                        minLength={field.minLength}
+                        maxLength={field.maxLength}
+                        value={formData[field.name] || ""}
+                        onInput={field.onInput}
+                        onInvalid={field.onInvalid}
+                        
+                        // minLength={field.min}
+                        // maxLength={field.max}
+                        onChange={(e) =>
+                          handleChange(field.name, e.target.value)
+                        }
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
+                      />
+                    </div>
+                  );
+                case "select":
+                  return (
+                    <div key={field.name}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.label}
+                      </label>
+                      {field.name === "userNo" ? (
+                        <select
+                          required={field.required}
+                          value={selectedUserId || ""}
+                          onChange={(e) => {
+                            handleChange(field.name, e.target.value);
+                            onUserSelection?.(e.target.value);
+                          }}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                        >
+                          {/* <select
+                        required={field.required}
+                        value={selectedUserName || ""}  // <-- controlled by selectedUserId
+  onChange={(e) => {
+    handleChange(field.name, e.target.value) // update formData if needed
+    onUserSelection?.(e.target.value)       // update selectedUserId + Name
+  }}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                      > */}
+                          <option value="" disabled>
+                            Select {field.label}
+                          </option>
+                          {field.options?.map((option) => (
+                            <option key={option} value={option}>
+                              {field.customLabels?.[option] || option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        // All other selects controlled by formData
+                        <select
+                          required={field.required}
+                          value={formData[field.name] || ""}
+                          onChange={(e) =>
+                            handleChange(field.name, e.target.value)
+                          }
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                        >
+                          <option value="" disabled>
+                            Select {field.label}
+                          </option>
+                          {field.options?.map((option) => (
+                            <option key={option} value={option}>
+                              {field.customLabels?.[option] || option}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+
+                case "radio":
+                  return (
+                    <div key={field.name}>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {field.label}
+                      </label>
+                      <div className="flex gap-3">
+                        {field.options?.map((option) => (
+                          <label
+                            key={option}
+                            className="flex items-center cursor-pointer text-sm"
+                          >
+                            <input
+                              type="radio"
+                              name={field.name}
+                              value={option}
+                              required={field.required}
+                              checked={formData[field.name] === option}
+                              onChange={(e) =>
+                                handleChange(field.name, e.target.value)
+                              }
+                              className="sr-only"
+                            />
+                            <div
+                              className={`w-4 h-4 border-2 rounded-full mr-2 flex items-center justify-center transition-colors ${
+                                formData[field.name] === option
+                                  ? "border-blue-500"
+                                  : "border-gray-300"
+                              }`}
+                            >
+                              {formData[field.name] === option && (
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                              )}
+                            </div>
+                            <span className="text-gray-700">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                default:
+                  return null;
+              }
+            })}
 
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium py-2.5 px-4 text-sm rounded-lg hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="flex-1 bg-amber-500 text-white font-medium py-2.5 px-4 text-sm rounded-lg hover:bg-amber-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
               >
-                {editingUser ? "Update User" : "Add User"}
+                Submit
               </button>
               <button
                 type="button"
@@ -221,5 +314,7 @@ export function UserModal({ isOpen, onClose, onSubmit, editingUser }: UserModalP
         </div>
       </div>
     </div>
-  )
+  );
 }
+
+export { GenericModal as UserModal };

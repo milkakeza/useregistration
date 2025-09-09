@@ -27,6 +27,7 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<Ap
   }
 }
 
+
 export const userApi = {
   async createUser(userData: CreateUserData): Promise<ApiResponse<User>> {
     return await apiRequest<User>(API_BASE_URL, {

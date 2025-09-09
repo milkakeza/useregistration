@@ -1,4 +1,5 @@
 export interface User {
+  maritalStatus: string;
   id: number;
   name: string;
   address: string;
@@ -14,7 +15,7 @@ export interface CreateUserData {
   address?: string;
   age?: number | null;
   nationalId?: string;
-  status?: string;
+  maritalStatus?: string;
   gender?: string;
 }
 
@@ -22,4 +23,19 @@ export interface ApiResponse<T> {
   status: string;
   message?: string;
   data: T;
+}
+
+export interface Profile {
+  id: string
+  email: string
+  full_name: string | null
+  role: string
+  created_at: string
+}
+
+export interface AuthUser {
+  id: string
+  email: string
+  created_at: string
+  last_sign_in_at: string | null
 }

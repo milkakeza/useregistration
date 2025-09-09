@@ -1,21 +1,23 @@
+import type { IconType } from "react-icons"
+
 interface StatsCardProps {
-  userCount: number;
+  userCount: number
+  title: string
+  Icon: IconType
 }
 
-export function StatsCard({ userCount }: StatsCardProps) {
+export function StatsCard({ userCount, title, Icon }: StatsCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+    <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-slate-200">
       <div className="flex items-center gap-4">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-3 rounded-xl">
-          <i className="fas fa-users text-white text-xl"></i>
+        <div className="bg-amber-500 p-3 rounded-xl">
+          <Icon className="text-white text-xl" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-gray-800">
-            Total Registered Users
-          </h3>
-          <p className="text-3xl font-bold text-gray-900">{userCount}</p>
+          <h3 className="text-lg font-semibold text-slate-600">{title}</h3>
+          <p className="text-3xl font-bold text-black">{userCount}</p>
         </div>
       </div>
     </div>
-  );
+  )
 }
