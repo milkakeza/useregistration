@@ -83,4 +83,9 @@ export const adminApi = {
     if (error) throw error
     return data || []
   },
+   async createUser(userData: { email: string; full_name: string; role: string }): Promise<void> {
+    const { error } = await supabase.from("profiles").insert([userData])
+
+    if (error) throw error
+  },
 }

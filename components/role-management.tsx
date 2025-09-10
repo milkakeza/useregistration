@@ -6,14 +6,19 @@ import { useToast } from "../src/hooks/use-toast"
 import { ToastContainer } from "../src/components/toast"
 import { StatsCard } from "../src/components/stats-card"
 import { ConfirmationDialog } from "../src/components/confirmation-dialogue"
-import { FaUsers } from "react-icons/fa"
-import { Trash2 } from "lucide-react"
+import { FaUsers, FaPlus } from "react-icons/fa"
+import { Trash2, Edit } from "lucide-react"
+import { supabase } from "../lib/supabase" // Added import for supabase
 
 export function RoleManagement() {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUser, setSelectedUser] = useState<any | null>(null)
   const [showRoleModal, setShowRoleModal] = useState(false)
+  const [showEditRoleModal, setShowEditRoleModal] = useState(false)
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [editingRole, setEditingRole] = useState({ name: "", description: "" })
+  const [newUser, setNewUser] = useState({ email: "", full_name: "", role: "user" })
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     userId: "",
@@ -56,6 +61,36 @@ export function RoleManagement() {
     }
   }
 
+  const handleAddUser = async () => {
+    try {
+      setLoading(true)
+      // Create user in Supabase profiles table
+      const { data, error: insertError } = await supabase
+        .from("profiles")
+        .insert([
+          {
+            email: newUser.email,
+            full_name: newUser.full_name,
+            role: newUser.role,
+          },
+        ])
+        .select()
+        .single()
+
+      if (insertError) throw insertError
+
+      await loadProfiles() // Refresh the list
+      setShowAddUserModal(false)
+      setNewUser({ email: "", full_name: "", role: "user" })
+      success("User added successfully!")
+    } catch (error) {
+      console.error("Failed to add user:", error)
+      error("Failed to add user. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleDeleteUser = async (userId: string, email: string) => {
     setDeleteConfirmation({
       isOpen: true,
@@ -89,6 +124,15 @@ export function RoleManagement() {
     setShowRoleModal(true)
   }
 
+  const openEditRoleModal = (user: any) => {
+    setSelectedUser(user)
+    setEditingRole({
+      name: user.role || "user",
+      description: user.role === "admin" ? "Full admin access" : "Standard user permissions",
+    })
+    setShowEditRoleModal(true)
+  }
+
   return (
     <div className="bg-slate-50 min-h-screen">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -100,6 +144,15 @@ export function RoleManagement() {
             <div>
               <h1 className="text-4xl font-bold text-slate-800 mb-2">Role Management</h1>
               <p className="text-slate-600">Manage authenticated user roles and permissions</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowAddUserModal(true)}
+                className="bg-amber-500 text-white font-semibold px-6 py-3 rounded-xl hover:bg-amber-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+              >
+                <FaPlus />
+                Add New User
+              </button>
             </div>
           </div>
         </div>
@@ -169,7 +222,15 @@ export function RoleManagement() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : "Unknown"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => openEditRoleModal(profile)}
+                          className="text-blue-600 hover:text-blue-900 p-1"
+                          disabled={loading}
+                          title="Edit role"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDeleteUser(profile.id, profile.email)}
                           className="text-red-600 hover:text-red-900 "
@@ -234,6 +295,127 @@ export function RoleManagement() {
                 className="px-4 py-2 text-slate-600 hover:text-slate-800 disabled:opacity-50"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditRoleModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Edit Role Details</h3>
+            <p className="text-slate-600 mb-6">
+              Edit role for <strong>{selectedUser.email}</strong>
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role Name</label>
+                <select
+                  value={editingRole.name}
+                  onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={editingRole.description}
+                  onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20 resize-none"
+                  placeholder="Role description..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowEditRoleModal(false)
+                  setSelectedUser(null)
+                }}
+                disabled={loading}
+                className="px-4 py-2 text-slate-600 hover:text-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleRoleChange(selectedUser.id, editingRole.name)
+                  setShowEditRoleModal(false)
+                }}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Add New User</h3>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowAddUserModal(false)
+                  setNewUser({ email: "", full_name: "", role: "user" })
+                }}
+                disabled={loading}
+                className="px-4 py-2 text-slate-600 hover:text-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddUser}
+                disabled={loading || !newUser.email || !newUser.full_name}
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
+              >
+                Add User
               </button>
             </div>
           </div>
