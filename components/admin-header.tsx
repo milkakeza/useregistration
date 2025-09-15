@@ -25,7 +25,7 @@ export function AdminHeader({ currentPage, onPageChange }: AdminHeaderProps) {
 
   const navItems = [
     { id: "dashboard" as const, label: "Dashboard", icon: "fas fa-chart-bar" },
-    { id: "users" as const, label: "User Management", icon: "fas fa-users" },
+    { id: "users" as const, label: "Employee Management", icon: "fas fa-users" },
     { id: "approvals" as const, label: "Pending Approvals", icon: "fas fa-clock" },
   ]
 

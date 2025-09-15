@@ -1,18 +1,16 @@
-"use client";
+"use client"
 
-import { useState, type FormEvent, type ChangeEvent } from "react";
-import { Fragment } from "react";
-import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { supabase } from "../../lib/supabase";
-import { Toaster, toast } from "react-hot-toast";
-
-
+import { useState, type FormEvent, type ChangeEvent } from "react"
+import { Fragment } from "react"
+import { User, Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { supabase } from "../../lib/supabase"
+import { Toaster, toast } from "react-hot-toast"
 
 interface FormData {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
+  name: string
+  email: string
+  password: string
+  confirmPassword: string
 }
 
 const Login = () => {
@@ -21,58 +19,77 @@ const Login = () => {
     email: "",
     password: "",
     confirmPassword: "",
-  });
-  const [isLoginMode, setIsLoginMode] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  })
+  const [isLoginMode, setIsLoginMode] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    const { name, value } = event.target;
+    const { name, value } = event.target
     setFormData((prevFormData) => ({
       ...prevFormData,
       [name]: value,
-    }));
+    }))
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+    e.preventDefault()
 
     // Signup validation
     if (!isLoginMode && formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
-      return;
+      toast.error("Passwords do not match!", {
+        duration: 3000,
+        style: {
+          background: "#ef4444",
+          color: "#fff",
+          fontWeight: "bold",
+        },
+      })
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
 
     try {
-      let data, error;
+      let data, error
 
       if (isLoginMode) {
         // Login
-        ({ data, error } = await supabase.auth.signInWithPassword({
+        ;({ data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
-        }));
+        }))
       } else {
         // Signup with email confirmation
-        ({ data, error } = await supabase.auth.signUp({
+        ;({ data, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
-        }));
+        }))
       }
 
       if (error) {
         if (error.message.includes("Email not confirmed")) {
-          alert(
-            "Please check your email and click the confirmation link before logging in."
-          );
+          toast.error("Please check your email and click the confirmation link before logging in.", {
+            duration: 5000,
+            style: {
+              background: "#f59e0b",
+              color: "#fff",
+              fontWeight: "bold",
+            },
+          })
         } else {
-          alert(error.message);
+          toast.error(error.message, {
+            duration: 4000,
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+              fontWeight: "bold",
+            },
+          })
         }
       } else {
         if (isLoginMode) {
@@ -83,23 +100,37 @@ const Login = () => {
               color: "#fff",
               fontWeight: "bold",
             },
-          });
+          })
           // The auth state change in App.tsx will automatically redirect to dashboard
 
           // Optional: redirect after a short delay
           setTimeout(() => {
             // Your redirect logic, e.g., router.push("/dashboard")
-          }, 1500);
+          }, 1500)
         } else {
-          alert("Please check your email for the verification link!");
+          toast.success("Please check your email for the verification link!", {
+            duration: 5000,
+            style: {
+              background: "#10b981",
+              color: "#fff",
+              fontWeight: "bold",
+            },
+          })
         }
-        console.log("Supabase response:", data);
+        console.log("Supabase response:", data)
       }
     } catch (error) {
-      alert("Something went wrong. Please try again.");
-      console.error(error);
+      toast.error("Something went wrong. Please try again.", {
+        duration: 4000,
+        style: {
+          background: "#ef4444",
+          color: "#fff",
+          fontWeight: "bold",
+        },
+      })
+      console.error(error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -189,11 +220,7 @@ const Login = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {showPassword ? (
-                    <Eye className="w-5 h-5" />
-                  ) : (
-                    <EyeOff className="w-5 h-5" />
-                  )}
+                  {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -214,11 +241,7 @@ const Login = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {showConfirmPassword ? (
-                    <Eye className="w-5 h-5" />
-                  ) : (
-                    <EyeOff className="w-5 h-5" />
-                  )}
+                  {showConfirmPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                 </button>
               </div>
             )}
@@ -241,26 +264,23 @@ const Login = () => {
               {loading ? "Loading..." : isLoginMode ? "Login" : "Sign Up"}
             </button>
             <div>
-              {isLoginMode
-                ? "Don't have an account?"
-                : "Already have an account?"}{" "}
+              {isLoginMode ? "Don't have an account?" : "Already have an account?"}{" "}
               <a
                 className="ml-2 hover:text-emerald-600 cursor-pointer"
                 onClick={(e) => {
-                  e.preventDefault();
-                  setIsLoginMode(!isLoginMode);
+                  e.preventDefault()
+                  setIsLoginMode(!isLoginMode)
                 }}
               >
                 {isLoginMode ? "Signup now" : "Login"}
               </a>
             </div>
           </form>
-          
         </div>
         <Toaster position="top-right" reverseOrder={false} />;
       </div>
     </Fragment>
-  );
-};
+  )
+}
 
-export default Login;
+export default Login

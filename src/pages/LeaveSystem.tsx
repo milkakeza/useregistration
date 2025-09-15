@@ -135,7 +135,7 @@ export default function LeaveSystem() {
         if (!response.ok) throw new Error("Failed to submit leave")
 
         const result = await response.json()
-        console.log("[v0] API Response:", result) // Added debugging to see API response structure
+        console.log("API Response:", result) // Added debugging to see API response structure
 
         const savedLeave: LeaveApplication = result.data || result
 
@@ -143,7 +143,7 @@ export default function LeaveSystem() {
           savedLeave.user = leaveData.user
         }
 
-        console.log("[v0] Processed Leave:", savedLeave) // Debug processed leave data
+        console.log("Processed Leave:", savedLeave) // Debug processed leave data
 
         setLeaveApplications((prev) => [...prev, savedLeave])
         success("Leave application submitted successfully!")

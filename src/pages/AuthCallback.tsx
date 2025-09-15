@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { supabase } from "../client"
+import { toast } from "react-toastify" // Added import for toast notification
 
 const AuthCallback = () => {
   useEffect(() => {
@@ -10,13 +11,13 @@ const AuthCallback = () => {
 
       if (error) {
         console.error("Error during auth callback:", error)
-        alert("Authentication failed. Please try again.")
+        toast.error("Authentication failed. Please try again.") // Replaced alert with toast notification
         window.location.href = "/login"
         return
       }
 
       if (data.session) {
-        alert("Email confirmed successfully! You are now logged in.")
+        toast.success("Email confirmed successfully! You are now logged in.") // Replaced alert with toast notification
         // Redirect to main app (App.tsx will handle showing the dashboard)
         window.location.href = "/"
       } else {

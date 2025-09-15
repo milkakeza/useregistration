@@ -275,6 +275,9 @@ export default function Dashboard() {
                       User
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
+                      ID Number
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
                       Role
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
@@ -290,6 +293,9 @@ export default function Dashboard() {
                           <div className="text-sm font-medium text-slate-900">{profile.full_name || "Milka Keza ISINGIZWE"}</div>
                           <div className="text-sm text-slate-500">{profile.email}</div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">
+                        {profile.national_id || "Not provided"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span

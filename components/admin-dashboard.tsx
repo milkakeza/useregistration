@@ -81,6 +81,9 @@ export function AdminDashboard({ profiles, onRefresh }: AdminDashboardProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Joined
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  ID Number
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
@@ -108,6 +111,9 @@ export function AdminDashboard({ profiles, onRefresh }: AdminDashboardProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                     {new Date(profile.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    {(profile.id_number)}
                   </td>
                 </tr>
               ))}

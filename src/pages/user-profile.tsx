@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "../client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
-import { FaCrown, FaUsers } from "react-icons/fa6"
+import { FaCrown, FaUsers, FaLock, FaEye, FaEyeSlash } from "react-icons/fa6"
 import { FaCheckCircle, FaSignInAlt } from "react-icons/fa"
 import { adminApi } from "../../lib/admin-api"
 
@@ -11,11 +11,34 @@ export default function UserProfile() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [profileData, setProfileData] = useState({
     email: "",
     fullName: "",
     role: "",
   })
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const toast = document.createElement("div")
+    toast.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg text-white font-medium shadow-lg transform transition-all duration-300 ${
+      type === "success" ? "bg-emerald-500" : "bg-red-500"
+    }`
+    toast.textContent = message
+    document.body.appendChild(toast)
+
+    setTimeout(() => {
+      toast.style.transform = "translateX(100%)"
+      setTimeout(() => document.body.removeChild(toast), 300)
+    }, 3000)
+  }
 
   useEffect(() => {
     getCurrentUser()
@@ -49,15 +72,48 @@ export default function UserProfile() {
       })
 
       if (error) {
-        alert("Error updating profile: " + error.message)
+        showToast("Error updating profile: " + error.message, "error")
       } else {
-        alert("Profile updated successfully!")
+        showToast("Profile updated successfully!")
         setIsEditing(false)
         getCurrentUser()
       }
     } catch (error) {
       console.error("Error updating profile:", error)
-      alert("Error updating profile. Please try again.")
+      showToast("Error updating profile. Please try again.", "error")
+    }
+  }
+
+  const handlePasswordUpdate = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      showToast("New passwords do not match", "error")
+      return
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      showToast("Password must be at least 6 characters long", "error")
+      return
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword,
+      })
+
+      if (error) {
+        showToast("Error updating password: " + error.message, "error")
+      } else {
+        showToast("Password updated successfully!")
+        setIsChangingPassword(false)
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating password:", error)
+      showToast("Error updating password. Please try again.", "error")
     }
   }
 
@@ -70,6 +126,15 @@ export default function UserProfile() {
         role: profileData.role,
       })
     }
+  }
+
+  const handlePasswordCancel = () => {
+    setIsChangingPassword(false)
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    })
   }
 
   if (loading) {
@@ -207,6 +272,103 @@ export default function UserProfile() {
                   <i className="fas fa-calendar absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="text-lg font-semibold text-slate-800">Security Settings</h4>
+                {!isChangingPassword ? (
+                  <button
+                    onClick={() => setIsChangingPassword(true)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 flex items-center gap-2"
+                  >
+                    <FaLock />
+                    Change Password
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handlePasswordUpdate}
+                      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200 flex items-center gap-2"
+                    >
+                      <i className="fas fa-save"></i>
+                      Update Password
+                    </button>
+                    <button
+                      onClick={handlePasswordCancel}
+                      className="bg-slate-500 text-white px-4 py-2 rounded-lg hover:bg-slate-600 transition-all duration-200 flex items-center gap-2"
+                    >
+                      <i className="fas fa-times"></i>
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {isChangingPassword && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                        placeholder="Enter current password"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showCurrentPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))}
+                        placeholder="Enter new password"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Password must be at least 6 characters long</p>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Confirm New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="Confirm new password"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-8 pt-6 border-t border-slate-200">

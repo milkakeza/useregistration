@@ -1,137 +1,269 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { adminApi } from "../lib/admin-api"
-import { useToast } from "../src/hooks/use-toast"
-import { ToastContainer } from "../src/components/toast"
-import { StatsCard } from "../src/components/stats-card"
-import { ConfirmationDialog } from "../src/components/confirmation-dialogue"
-import { FaUsers, FaPlus } from "react-icons/fa"
-import { Trash2, Edit } from "lucide-react"
-import { supabase } from "../lib/supabase" // Added import for supabase
+import { useState, useEffect } from "react";
+import { adminApi } from "../lib/admin-api";
+import { supabase } from "../lib/supabase";
+import { useToast } from "../src/hooks/use-toast";
+import { ToastContainer } from "../src/components/toast";
+import { StatsCard } from "../src/components/stats-card";
+import { ConfirmationDialog } from "../src/components/confirmation-dialogue";
+import { FaUsers, FaPlus } from "react-icons/fa";
+import { Trash2, Edit } from "lucide-react";
 
 export function RoleManagement() {
-  const [profiles, setProfiles] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedUser, setSelectedUser] = useState<any | null>(null)
-  const [showRoleModal, setShowRoleModal] = useState(false)
-  const [showEditRoleModal, setShowEditRoleModal] = useState(false)
-  const [showAddUserModal, setShowAddUserModal] = useState(false)
-  const [editingRole, setEditingRole] = useState({ name: "", description: "" })
-  const [newUser, setNewUser] = useState({ email: "", full_name: "", role: "user" })
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showEditRoleModal, setShowEditRoleModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [editingRole, setEditingRole] = useState({
+    idNumber: "",
+    name: "",
+    description: "",
+    fullName: "",
+  });
+  type NewUser = {
+    id: "";
+    email: "";
+    full_name: "";
+    role: "";
+  };
+  const [newUser, setNewUser] = useState({
+    idNumber: "",
+    email: "",
+    full_name: "",
+    role: "user",
+  });
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     userId: "",
     userEmail: "",
-  })
-  const { toasts, removeToast, success, error } = useToast()
+  });
+  const { toasts, removeToast, success, error } = useToast();
 
   useEffect(() => {
-    loadProfiles()
-  }, [])
+    loadProfiles();
+  }, []);
 
   const loadProfiles = async () => {
     try {
-      setLoading(true)
-      console.log(" Loading authenticated user profiles...")
-      const profiles = await adminApi.getAllProfiles()
-      console.log("Loaded profiles:", profiles)
-      setProfiles(profiles || [])
+      setLoading(true);
+      console.log("Loading authenticated user profiles...");
+      const profiles = await adminApi.getAllProfiles();
+      console.log("Loaded profiles:", profiles);
+      profiles?.forEach((profile, index) => {
+        console.log(
+          `Profile ${index}: id=${profile.id}, full_name="${profile.full_name}", email="${profile.email}"`
+        );
+      });
+      setProfiles(profiles || []);
     } catch (error) {
-      console.error("Failed to load profiles:", error)
-      error("Failed to load user profiles. Please try again.")
+      console.error("Failed to load profiles:", error);
+      error("Failed to load user profiles. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      setLoading(true)
-      await adminApi.updateUserRole(userId, newRole)
-      await loadProfiles() // Refresh the list
-      setShowRoleModal(false)
-      setSelectedUser(null)
-      success(`User role updated to ${newRole}!`)
+      setLoading(true);
+      await adminApi.updateUserRole(userId, newRole);
+      await loadProfiles(); // Refresh the list
+      setShowRoleModal(false);
+      setSelectedUser(null);
+      success(`User role updated to ${newRole}!`);
     } catch (error) {
-      console.error("Failed to update user role:", error)
-      error("Failed to update user role. Please try again.")
+      console.error("Failed to update user role:", error);
+      error("Failed to update user role. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleAddUser = async () => {
     try {
-      setLoading(true)
-      // Create user in Supabase profiles table
-      const { data, error: insertError } = await supabase
+      setLoading(true);
+      console.log("Starting user creation process...");
+      console.log("New user data:", newUser);
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: "TempPassword123!", // Generate a temporary password
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (authError) {
+        console.error("Auth user creation failed:", authError);
+        throw new Error(`Failed to create auth user: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error("No user data returned from auth signup");
+      }
+
+      console.log("Auth user created successfully:", authData.user.id);
+
+      const { data: existingProfile } = await supabase
         .from("profiles")
-        .insert([
-          {
+        .select("id")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (existingProfile) {
+        console.log("Profile already exists, updating it...");
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .update({
             email: newUser.email,
             full_name: newUser.full_name,
+            national_id: newUser.idNumber,
             role: newUser.role,
-          },
-        ])
-        .select()
-        .single()
+          })
+          .eq("id", authData.user.id)
+          .select()
+          .single();
 
-      if (insertError) throw insertError
+        if (profileError) {
+          console.error("Profile update failed:", profileError);
+          throw new Error(`Failed to update profile: ${profileError.message}`);
+        }
 
-      await loadProfiles() // Refresh the list
-      setShowAddUserModal(false)
-      setNewUser({ email: "", full_name: "", role: "user" })
-      success("User added successfully!")
-    } catch (error) {
-      console.error("Failed to add user:", error)
-      error("Failed to add user. Please try again.")
+        console.log("Profile updated successfully:", profileData);
+      } else {
+        console.log("Creating new profile...");
+        const profileInsertData = {
+          id: authData.user.id,
+          email: newUser.email,
+          full_name: newUser.full_name,
+          national_id: newUser.idNumber,
+          role: newUser.role,
+        };
+        console.log("Profile insert data:", profileInsertData);
+
+        // Create new profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .insert(profileInsertData)
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error("Profile creation failed:", profileError);
+          throw new Error(`Failed to create profile: ${profileError.message}`);
+        }
+
+        console.log("Profile created successfully:", profileData);
+      }
+
+      await loadProfiles(); // Refresh the list
+      setShowAddUserModal(false);
+      setNewUser({ idNumber: "", email: "", full_name: "", role: "user" });
+      success("User added successfully!");
+    } catch (err) {
+      console.error("Failed to add user:", err);
+      error(`Failed to add user: ${err.message}`);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleDeleteUser = async (userId: string, email: string) => {
     setDeleteConfirmation({
       isOpen: true,
       userId,
       userEmail: email,
-    })
-  }
+    });
+  };
 
   const handleConfirmDelete = async () => {
     try {
-      setLoading(true)
-      await adminApi.deleteUser(deleteConfirmation.userId)
-      await loadProfiles() // Refresh the list
-      success("User deleted successfully!")
-    } catch (error) {
-      console.error("Failed to delete user:", error)
-      error("Failed to delete user. Please try again.")
+      setLoading(true);
+      await adminApi.deleteUser(deleteConfirmation.userId);
+      await loadProfiles(); // Refresh the list
+      success("User deleted successfully!");
+    } catch (err) {
+      console.error("Failed to delete user:", err);
+      error("Failed to delete user. Please try again.");
     } finally {
-      setLoading(false)
-      setDeleteConfirmation({ isOpen: false, userId: "", userEmail: "" })
+      setLoading(false);
+      setDeleteConfirmation({ isOpen: false, userId: "", userEmail: "" });
     }
-  }
+  };
 
   const handleCloseDeleteConfirmation = () => {
-    setDeleteConfirmation({ isOpen: false, userId: "", userEmail: "" })
-  }
+    setDeleteConfirmation({ isOpen: false, userId: "", userEmail: "" });
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const openRoleModal = (user: any) => {
-    setSelectedUser(user)
-    setShowRoleModal(true)
-  }
+    setSelectedUser(user);
+    setShowRoleModal(true);
+  };
 
   const openEditRoleModal = (user: any) => {
-    setSelectedUser(user)
+    setSelectedUser(user);
     setEditingRole({
+      idNumber: user.national_id || "",
       name: user.role || "user",
-      description: user.role === "admin" ? "Full admin access" : "Standard user permissions",
-    })
-    setShowEditRoleModal(true)
-  }
+      description:
+        user.role === "admin"
+          ? "Full admin access"
+          : "Standard user permissions",
+      fullName: user.full_name || "",
+    });
+    setShowEditRoleModal(true);
+  };
+
+  const handleUpdateUserName = async (userId: string, newFullName: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: newFullName })
+        .eq("id", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      await loadProfiles(); // Refresh the list
+      success("User name updated successfully!");
+    } catch (err) {
+      console.error("Failed to update user name:", err);
+      error("Failed to update user name. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateUserIdNumber = async (
+    userId: string,
+    newIdNumber: string
+  ) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ national_id: newIdNumber })
+        .eq("id", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      await loadProfiles(); // Refresh the list
+      success("User ID Number updated successfully!");
+    } catch (err) {
+      console.error("Failed to update user ID Number:", err);
+      error("Failed to update user ID Number. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -142,8 +274,10 @@ export function RoleManagement() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold text-slate-800 mb-2">Role Management</h1>
-              <p className="text-slate-600">Manage authenticated user roles and permissions</p>
+              <h1 className="text-4xl font-bold text-slate-800 mb-2">
+                User Management
+              </h1>
+              <p className="text-slate-600">Manage users and permissions</p>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -160,11 +294,17 @@ export function RoleManagement() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <StatsCard userCount={profiles.length} title="Total Authenticated Users" Icon={FaUsers} />
+        <StatsCard
+          userCount={profiles.length}
+          title="Total Authenticated Users"
+          Icon={FaUsers}
+        />
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800">User Profiles</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              User Profiles
+            </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -172,6 +312,9 @@ export function RoleManagement() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ID Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
@@ -187,13 +330,16 @@ export function RoleManagement() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center">
+                    <td colSpan={5} className="px-6 py-4 text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                     </td>
                   </tr>
                 ) : profiles.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
                       No users found
                     </td>
                   </tr>
@@ -203,15 +349,22 @@ export function RoleManagement() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {profile.full_name || "Milka Keza ISINGIZWE"}
+                            {profile.full_name || "No name provided"}
                           </div>
-                          <div className="text-sm text-black">{profile.email}</div>
+                          <div className="text-sm text-black">
+                            {profile.email}
+                          </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                        {profile.national_id || "Not provided"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <select
                           value={profile.role || "user"}
-                          onChange={(e) => handleRoleChange(profile.id, e.target.value)}
+                          onChange={(e) =>
+                            handleRoleChange(profile.id, e.target.value)
+                          }
                           className="text-sm border border-gray-300 rounded px-2 py-1"
                           disabled={loading}
                         >
@@ -220,7 +373,9 @@ export function RoleManagement() {
                         </select>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : "Unknown"}
+                        {profile.created_at
+                          ? new Date(profile.created_at).toLocaleDateString()
+                          : "Unknown"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <button
@@ -232,7 +387,9 @@ export function RoleManagement() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteUser(profile.id, profile.email)}
+                          onClick={() =>
+                            handleDeleteUser(profile.id, profile.email)
+                          }
                           className="text-red-600 hover:text-red-900 "
                           disabled={loading}
                         >
@@ -252,7 +409,9 @@ export function RoleManagement() {
       {showRoleModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Change User Role</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Change User Role
+            </h3>
             <p className="text-slate-600 mb-6">
               Change role for <strong>{selectedUser.email}</strong>
             </p>
@@ -268,7 +427,9 @@ export function RoleManagement() {
                 }`}
               >
                 <div className="font-medium">Regular User</div>
-                <div className="text-sm text-slate-500">Standard user permissions</div>
+                <div className="text-sm text-slate-500">
+                  Standard user permissions
+                </div>
               </button>
 
               <button
@@ -288,8 +449,8 @@ export function RoleManagement() {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
-                  setShowRoleModal(false)
-                  setSelectedUser(null)
+                  setShowRoleModal(false);
+                  setSelectedUser(null);
                 }}
                 disabled={loading}
                 className="px-4 py-2 text-slate-600 hover:text-slate-800 disabled:opacity-50"
@@ -304,17 +465,52 @@ export function RoleManagement() {
       {showEditRoleModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Edit Role Details</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Edit User Details
+            </h3>
             <p className="text-slate-600 mb-6">
-              Edit role for <strong>{selectedUser.email}</strong>
+              Edit details for <strong>{selectedUser.email}</strong>
             </p>
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={editingRole.fullName || selectedUser.full_name || ""}
+                  onChange={(e) =>
+                    setEditingRole({ ...editingRole, fullName: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ID Number
+                </label>
+                <input
+                  type="text"
+                  value={editingRole.idNumber || selectedUser.national_id || ""}
+                  onChange={(e) =>
+                    setEditingRole({ ...editingRole, idNumber: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="Enter ID Number"
+                  maxLength={16}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role Name
+                </label>
                 <select
                   value={editingRole.name}
-                  onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
+                  onChange={(e) =>
+                    setEditingRole({ ...editingRole, name: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 >
                   <option value="user">User</option>
@@ -322,10 +518,17 @@ export function RoleManagement() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
                 <textarea
                   value={editingRole.description}
-                  onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
+                  onChange={(e) =>
+                    setEditingRole({
+                      ...editingRole,
+                      description: e.target.value,
+                    })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20 resize-none"
                   placeholder="Role description..."
                 />
@@ -335,8 +538,8 @@ export function RoleManagement() {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
-                  setShowEditRoleModal(false)
-                  setSelectedUser(null)
+                  setShowEditRoleModal(false);
+                  setSelectedUser(null);
                 }}
                 disabled={loading}
                 className="px-4 py-2 text-slate-600 hover:text-slate-800 disabled:opacity-50"
@@ -344,9 +547,29 @@ export function RoleManagement() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  handleRoleChange(selectedUser.id, editingRole.name)
-                  setShowEditRoleModal(false)
+                onClick={async () => {
+                  if (
+                    editingRole.fullName !== undefined &&
+                    editingRole.fullName !== selectedUser.full_name
+                  ) {
+                    await handleUpdateUserName(
+                      selectedUser.id,
+                      editingRole.fullName
+                    );
+                  }
+                  if (
+                    editingRole.idNumber !== undefined &&
+                    editingRole.idNumber !== selectedUser.national_id
+                  ) {
+                    await handleUpdateUserIdNumber(
+                      selectedUser.id,
+                      editingRole.idNumber
+                    );
+                  }
+                  if (editingRole.name !== selectedUser.role) {
+                    await handleRoleChange(selectedUser.id, editingRole.name);
+                  }
+                  setShowEditRoleModal(false);
                 }}
                 disabled={loading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -361,36 +584,66 @@ export function RoleManagement() {
       {showAddUserModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Add New User</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              Add New User
+            </h3>
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, email: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="user@example.com"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   value={newUser.full_name}
-                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, full_name: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="John Doe"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ID Number
+                </label>
+                <input
+                  type="text"
+                  value={newUser.idNumber}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, idNumber: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="16-digit ID number"
+                  maxLength={16}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, role: e.target.value })
+                  }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 >
                   <option value="user">User</option>
@@ -402,8 +655,13 @@ export function RoleManagement() {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
-                  setShowAddUserModal(false)
-                  setNewUser({ email: "", full_name: "", role: "user" })
+                  setShowAddUserModal(false);
+                  setNewUser({
+                    idNumber: "",
+                    email: "",
+                    full_name: "",
+                    role: "user",
+                  });
                 }}
                 disabled={loading}
                 className="px-4 py-2 text-slate-600 hover:text-slate-800 disabled:opacity-50"
@@ -434,5 +692,5 @@ export function RoleManagement() {
         type="danger"
       />
     </div>
-  )
+  );
 }

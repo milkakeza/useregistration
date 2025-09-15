@@ -43,6 +43,19 @@ export default function PendingApproval() {
     userName: string
   }>({ isOpen: false, leaveId: "", userName: "" })
 
+  const [approveConfirmation, setApproveConfirmation] = useState<{
+    isOpen: boolean
+    leaveId: string
+    userName: string
+  }>({ isOpen: false, leaveId: "", userName: "" })
+  const [rejectConfirmation, setRejectConfirmation] = useState<{
+    isOpen: boolean
+    leaveId: string
+    userName: string
+    reason: string
+  }>({ isOpen: false, leaveId: "", userName: "", reason: "" })
+  const [rejectReason, setRejectReason] = useState("")
+
   const [currentFilter, setCurrentFilter] = useState<LeaveFilter>("PENDING")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 4
@@ -59,18 +72,18 @@ export default function PendingApproval() {
 
     getCurrentUser()
     loadProfiles()
-    loadLeaves()
+    fetchLeaveApplications()
   }, [])
 
   const loadProfiles = async () => {
     try {
       setLoading(true)
-      console.log("[v0] Loading pending users for approval...")
+      console.log("Loading pending users for approval...")
       const pendingUsers = await adminApi.getPendingUsers()
-      console.log("[v0] Loaded pending users:", pendingUsers)
+      console.log("Loaded pending users:", pendingUsers)
       setProfiles(pendingUsers || [])
     } catch (error) {
-      console.error("[v0] Failed to load pending users:", error)
+      console.error("Failed to load pending users:", error)
       error("Failed to load pending users. Please try again.")
     } finally {
       setLoading(false)
@@ -79,29 +92,29 @@ export default function PendingApproval() {
 
   const handleApproveUser = async (userId: string) => {
     try {
-      console.log("[v0] Approving user:", userId)
+      console.log("Approving user:", userId)
       await adminApi.updateUserRole(userId, "approved")
       setProfiles((prev) => prev.filter((profile) => profile.id !== userId))
       success("User approved successfully!")
     } catch (error) {
-      console.error("[v0] Failed to approve user:", error)
+      console.error("Failed to approve user:", error)
       error("Failed to approve user. Please try again.")
     }
   }
 
   const handleRejectUser = async (userId: string) => {
     try {
-      console.log("[v0] Rejecting user:", userId)
+      console.log("Rejecting user:", userId)
       await adminApi.deleteUser(userId)
       setProfiles((prev) => prev.filter((profile) => profile.id !== userId))
       success("User rejected and removed successfully!")
     } catch (error) {
-      console.error("[v0] Failed to reject user:", error)
+      console.error("Failed to reject user:", error)
       error("Failed to reject user. Please try again.")
     }
   }
 
-  const loadLeaves = async () => {
+  const fetchLeaveApplications = async () => {
     try {
       setLoading(true)
       const response = await fetch(`${API_BASE_URL}`)
@@ -117,6 +130,18 @@ export default function PendingApproval() {
   }
 
   const handleApprove = async (leaveId: string) => {
+    const leave = leaveApplications.find((l) => l.id === leaveId)
+    if (!leave) return
+
+    setApproveConfirmation({
+      isOpen: true,
+      leaveId,
+      userName: leave.user.name,
+    })
+  }
+
+  const confirmApproveLeave = async () => {
+    const { leaveId } = approveConfirmation
     try {
       const response = await fetch(`${API_BASE_URL}/${leaveId}/approve`, {
         method: "PUT",
@@ -129,36 +154,61 @@ export default function PendingApproval() {
 
       if (result.status === "success") {
         success(result.message || "Leave approved successfully!")
-        loadLeaves()
+        fetchLeaveApplications()
       } else {
         throw new Error(result.message || "Failed to approve leave")
       }
     } catch (err) {
       console.error(err)
       error("Failed to approve leave. Please try again.")
+    } finally {
+      setApproveConfirmation({ isOpen: false, leaveId: "", userName: "" })
     }
   }
 
   const handleReject = async (leaveId: string) => {
+    const leave = leaveApplications.find((l) => l.id === leaveId)
+    if (!leave) return
+
+    setRejectConfirmation({
+      isOpen: true,
+      leaveId,
+      userName: leave.user.name,
+      reason: "",
+    })
+    setRejectReason("")
+  }
+
+  const confirmRejectLeave = async () => {
+    const { leaveId } = rejectConfirmation
+    if (!rejectReason.trim()) {
+      error("Please provide a reason for rejection.")
+      return
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/${leaveId}/reject`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ reason: rejectReason }),
       })
       if (!response.ok) throw new Error("Failed to reject leave")
       const result = await response.json()
 
       if (result.status === "success") {
         success(result.message || "Leave rejected successfully!")
-        loadLeaves()
+        fetchLeaveApplications()
       } else {
         throw new Error(result.message || "Failed to reject leave")
       }
     } catch (err) {
       console.error(err)
       error("Failed to reject leave. Please try again.")
+    } finally {
+      setRejectConfirmation({ isOpen: false, leaveId: "", userName: "", reason: "" })
+      setRejectReason("")
     }
   }
 
@@ -333,6 +383,52 @@ export default function PendingApproval() {
   return (
     <div className="bg-slate-50 min-h-screen">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      <ConfirmationDialog
+        isOpen={approveConfirmation.isOpen}
+        onClose={() => setApproveConfirmation({ isOpen: false, leaveId: "", userName: "" })}
+        onConfirm={confirmApproveLeave}
+        title="Approve Leave Application"
+        message={`Are you sure you want to approve ${approveConfirmation.userName}'s leave application?`}
+        confirmText="Approve"
+        cancelText="Cancel"
+      />
+
+      <div
+        className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${rejectConfirmation.isOpen ? "block" : "hidden"}`}
+      >
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Reject Leave Application</h3>
+          <p className="text-slate-600 mb-4">
+            Are you sure you want to reject {rejectConfirmation.userName}'s leave application? Please provide a reason
+            for rejection.
+          </p>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Enter reason for rejection..."
+            className="w-full p-3 border border-slate-300 rounded-lg resize-none h-24 mb-4 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+          />
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => {
+                setRejectConfirmation({ isOpen: false, leaveId: "", userName: "", reason: "" })
+                setRejectReason("")
+              }}
+              className="px-4 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmRejectLeave}
+              disabled={!rejectReason.trim()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Reject Leave
+            </button>
+          </div>
+        </div>
+      </div>
 
       <ConfirmationDialog
         isOpen={deleteConfirmation.isOpen}

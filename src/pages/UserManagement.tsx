@@ -46,14 +46,14 @@ export default function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true)
-      console.log("[v0] Loading employee users via user API...")
+      console.log("Loading employee users via user API...")
       const response = await userApi.getAllUsers()
-      console.log("[v0] API response:", response)
+      console.log("API response:", response)
       const employees = response.data || []
-      console.log("[v0] Loaded employees:", employees)
+      console.log("Loaded employees:", employees)
       setUsers(employees)
     } catch (error) {
-      console.error("[v0] Failed to load users:", error)
+      console.error("Failed to load users:", error)
       error("Failed to load users. Please try again.")
     } finally {
       setLoading(false)
@@ -189,8 +189,8 @@ export default function UserManagement() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold text-slate-800 mb-2">User Management</h1>
-              <p className="text-slate-600">Manage employee users and their information</p>
+              <h1 className="text-4xl font-bold text-slate-800 mb-2">Employee Management</h1>
+              <p className="text-slate-600">Manage employees and their information</p>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -198,7 +198,7 @@ export default function UserManagement() {
                 className="bg-amber-500 text-white font-semibold px-6 py-3 rounded-xl hover:bg-amber-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
               >
                 <FaPlus />
-                Add New User
+                Add New Employee
               </button>
             </div>
           </div>

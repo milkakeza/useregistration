@@ -45,12 +45,12 @@ export function Sidebar({ user, currentPage, onPageChange, userRole }: SidebarPr
       },
       {
         icon: <FaUsers />,
-        label: "User Management",
+        label: "Employee Management",
         key: "users",
       },
       {
         icon: <MdAdminPanelSettings />,
-        label: "Role Management",
+        label: "User Management",
         key: "roles",
       },
       {
