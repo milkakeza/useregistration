@@ -22,11 +22,9 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<Ap
   } catch (error) {
     console.error("API Error:", error)
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
-    alert("Error: " + errorMessage)
     throw error
   }
 }
-
 
 export const userApi = {
   async createUser(userData: CreateUserData): Promise<ApiResponse<User>> {
@@ -55,5 +53,13 @@ export const userApi = {
     return await apiRequest<void>(`${API_BASE_URL}/${id}`, {
       method: "DELETE",
     })
+  },
+
+  async validateUserByNationalId(nationalId: string): Promise<ApiResponse<any>> {
+    return await apiRequest<any>(`http://localhost:8080/api/users/nid/${nationalId}`)
+  },
+
+  async getLeavesByNationalId(nationalId: string): Promise<ApiResponse<any>> {
+    return await apiRequest<any>(`http://localhost:8080/leave/nid/${nationalId}`)
   },
 }

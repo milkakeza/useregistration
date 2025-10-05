@@ -22,6 +22,7 @@ interface LeaveApplication {
   type: string
   submittedDate: string
   status: string
+  rejectionReason?: string
 }
 
 export default function LeaveSystem() {
@@ -29,6 +30,7 @@ export default function LeaveSystem() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   const [selectedUserId, setSelectedUserId] = useState<string>("")
   const [selectedUserName, setSelectedUserName] = useState<string>("")
   const [leaveApplications, setLeaveApplications] = useState<LeaveApplication[]>([])
@@ -51,12 +53,31 @@ export default function LeaveSystem() {
         data: { user },
       } = await supabase.auth.getUser()
       setUser(user)
+
+      if (user) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+
+        if (!profileError && profile) {
+          setCurrentUserProfile(profile)
+          console.log("[v0] Current user profile:", profile)
+        }
+      }
     }
 
     getCurrentUser()
     loadUsers()
-    loadLeaves()
   }, [])
+
+  useEffect(() => {
+    if (currentUserProfile?.national_id) {
+      console.log("[v0] Loading leaves for user with national_id:", currentUserProfile.national_id)
+      loadUserLeaves()
+    }
+  }, [currentUserProfile])
 
   const loadUsers = async () => {
     try {
@@ -71,16 +92,36 @@ export default function LeaveSystem() {
     }
   }
 
-  const loadLeaves = async () => {
+  const loadUserLeaves = async () => {
+    if (!currentUserProfile?.national_id) {
+      console.log("[v0] No national ID available for current user")
+      return
+    }
+
     try {
       setLoading(true)
-      const response = await fetch(API_BASE_URL)
-      if (!response.ok) throw new Error("Failed to fetch leave applications")
-      const data = await response.json()
-      setLeaveApplications(data.data || [])
+      console.log("[v0] Loading leaves for national ID:", currentUserProfile.national_id)
+
+      const response = await userApi.getLeavesByNationalId(currentUserProfile.national_id)
+      console.log("[v0] User leaves response:", response)
+
+      if (response.status === "success" && response.data) {
+        setLeaveApplications(response.data)
+        console.log("[v0] Successfully loaded", response.data.length, "leave applications for user")
+      } else if (response.status === "error" && response.message === "user has no leaves") {
+        // User has no leaves yet, which is fine
+        setLeaveApplications([])
+        console.log("[v0] User has no leaves yet")
+      } else {
+        throw new Error(response.message || "Failed to load leaves")
+      }
     } catch (err) {
-      console.error(err)
-      error("Failed to load leave applications. Please try again.")
+      console.error("[v0] Failed to load user leaves:", err)
+      // Don't show error for "no leaves" case
+      if (!err.message?.includes("user has no leaves")) {
+        error("Failed to load your leave applications. Please try again.")
+      }
+      setLeaveApplications([])
     } finally {
       setLoading(false)
     }
@@ -148,7 +189,7 @@ export default function LeaveSystem() {
         setLeaveApplications((prev) => [...prev, savedLeave])
         success("Leave application submitted successfully!")
 
-        await loadLeaves()
+        await loadUserLeaves()
       }
 
       handleCloseModal()
@@ -213,6 +254,14 @@ export default function LeaveSystem() {
 
   const handleOpenModal = () => {
     setEditingLeave(null)
+    if (currentUserProfile) {
+      // Find the user in the users array that matches current user's national_id
+      const currentUser = users.find((u) => u.nationalId === currentUserProfile.national_id)
+      if (currentUser) {
+        setSelectedUserId(currentUser.id.toString())
+        setSelectedUserName(currentUser.name)
+      }
+    }
     setIsModalOpen(true)
   }
 
@@ -254,8 +303,8 @@ export default function LeaveSystem() {
       <div className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800 mb-2">Leave System</h1>
-            <p className="text-slate-600">Manage and organize applied leaves</p>
+            <h1 className="text-4xl font-bold text-slate-800 mb-2">My Leave Applications</h1>
+            <p className="text-slate-600">Manage your leave requests</p>
           </div>
           <button
             onClick={handleOpenModal}
@@ -268,11 +317,11 @@ export default function LeaveSystem() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <StatsCard userCount={leaveApplications.length} title="Total Leave Applications" Icon={FaCalendar} />
+        <StatsCard userCount={leaveApplications.length} title="My Leave Applications" Icon={FaCalendar} />
 
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mt-6">
           <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-slate-800">Leave Applications</h3>
+            <h3 className="text-lg font-semibold text-slate-800">My Leave Applications</h3>
             {leaveApplications.length > 5 && (
               <div className="flex items-center gap-1">
                 <button
@@ -330,7 +379,7 @@ export default function LeaveSystem() {
                 {currentLeaves.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-8 text-center text-slate-600">
-                      No leave applications submitted yet
+                      You haven't submitted any leave applications yet
                     </td>
                   </tr>
                 ) : (
@@ -366,20 +415,56 @@ export default function LeaveSystem() {
                           {app.reason}
                         </td>
                         <td className="px-3 py-4 whitespace-nowrap text-sm text-slate-600">{app.submittedDate}</td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-slate-600">{app.status}</td>
+                        <td className="px-3 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              app.status === "PENDING"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : app.status === "APPROVED"
+                                  ? "bg-green-100 text-green-800"
+                                  : app.status === "REJECTED"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-slate-100 text-slate-800"
+                            }`}
+                          >
+                            {app.status}
+                          </span>
+                        </td>
                         <td className="px-3 py-4">
                           <div className="flex gap-1 justify-center">
                             <button
                               onClick={() => handleEditLeave(app)}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center justify-center"
-                              title="Edit Leave"
+                              disabled={app.status === "APPROVED" || app.status === "REJECTED"}
+                              className={`p-1.5 rounded-lg transition-all duration-200 flex items-center justify-center ${
+                                app.status === "APPROVED" || app.status === "REJECTED"
+                                  ? "text-gray-400 cursor-not-allowed opacity-50"
+                                  : "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                              }`}
+                              title={
+                                app.status === "APPROVED"
+                                  ? "Cannot edit approved leave"
+                                  : app.status === "REJECTED"
+                                    ? "Cannot edit rejected leave"
+                                    : "Edit Leave"
+                              }
                             >
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteLeave(app.id)}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center justify-center"
-                              title="Delete Leave"
+                              disabled={app.status === "APPROVED" || app.status === "REJECTED"}
+                              className={`p-1.5 rounded-lg transition-all duration-200 flex items-center justify-center ${
+                                app.status === "APPROVED" || app.status === "REJECTED"
+                                  ? "text-gray-400 cursor-not-allowed opacity-50"
+                                  : "text-red-600 hover:text-red-800 hover:bg-red-50"
+                              }`}
+                              title={
+                                app.status === "APPROVED"
+                                  ? "Cannot delete approved leave"
+                                  : app.status === "REJECTED"
+                                    ? "Cannot delete rejected leave"
+                                    : "Delete Leave"
+                              }
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -392,6 +477,34 @@ export default function LeaveSystem() {
             </table>
           </div>
         </div>
+
+        {currentLeaves.some((app) => app.status === "REJECTED" && app.rejectionReason) && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mt-6">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-800">Rejection Details</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {currentLeaves
+                .filter((app) => app.status === "REJECTED" && app.rejectionReason)
+                .map((app) => (
+                  <div key={app.id} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-medium text-red-800">
+                        Leave from {app.startDate} to {app.endDate}
+                      </h4>
+                      <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full">{app.type}</span>
+                    </div>
+                    <p className="text-sm text-red-700 mb-1">
+                      <strong>Admin's Note:</strong>
+                    </p>
+                    <p className="text-sm text-red-600 bg-white p-3 rounded border border-red-200">
+                      {app.rejectionReason}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <GenericModal
@@ -408,7 +521,7 @@ export default function LeaveSystem() {
             required: true,
             customLabels: users.reduce(
               (acc, user) => {
-                acc[user.id.toString()] = `${user.id} - ${user.name}`
+                acc[user.id.toString()] = `${user.nationalId} - ${user.name}`
                 return acc
               },
               {} as Record<string, string>,

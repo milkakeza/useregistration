@@ -17,6 +17,8 @@ export interface CreateUserData {
   nationalId?: string;
   maritalStatus?: string;
   gender?: string;
+  email?: string;
+  role?: string;
 }
 
 export interface ApiResponse<T> {

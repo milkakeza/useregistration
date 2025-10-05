@@ -117,9 +117,11 @@ export default function PendingApproval() {
   const fetchLeaveApplications = async () => {
     try {
       setLoading(true)
+      console.log("[v0] Admin loading all leave applications")
       const response = await fetch(`${API_BASE_URL}`)
       if (!response.ok) throw new Error("Failed to fetch leave applications")
       const data = await response.json()
+      console.log("[v0] Admin loaded", data.data?.length || 0, "total leave applications")
       setLeaveApplications(data.data || [])
     } catch (error) {
       console.error(error)
